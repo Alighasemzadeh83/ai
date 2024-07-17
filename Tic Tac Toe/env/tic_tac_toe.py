@@ -22,11 +22,20 @@ class TicTacToe:
         """
         Returns the next state, reward and done
         """
-        
-        self.board, reward, done = self._step(self.board, action)
+        row = action // self.N
+        col = action % self.N
+
+        self.board[row, col] = self.player
+
         self.player = -self.player
 
-        return self.__state, reward, done
+        if self.__check_win(action, -self.player, self.board):
+            return self.__state, 1, True
+
+        if np.all(self.board != 0):
+            return self.__state, 0, True
+
+        return self.__state, 0, False
 
     def get_valid_actions(self, board=None):
         """
@@ -89,18 +98,28 @@ class TicTacToe:
        return self.board * self.player 
 
     def __str__(self):
-        _str = ''
-        for i in range(3):
-            for j in range(3):
+        _str = '\n-------------\n'
+        for i in range(self.N):
+            for j in range(self.N):
                 if self.board[i][j] == 1:
-                    _str += 'X '
+                    _str += 'X | '
                 elif self.board[i][j] == -1:
-                    _str += 'O '
+                    _str += 'O | '
                 else:
-                    _str += '_ '
-            _str += '\n'
+                    _str += '_ | '
+            _str += '\n-------------\n'
         return _str
 
-    def render(self):
-        # TODO: Implement a better render function
-        print(self)
+    def render(self, policy=None, value=None):
+        """
+        Renders the board with the policy
+        """
+        if policy is None:
+            print(self)
+            return
+        print(f"Value: {value:.2f}, Policy:\n-------------")
+        for i in range(self.N):
+            for j in range(self.N):
+                print(f"{policy[i * 3 + j]:.2f}", end=" | ")
+            print('\n-------------')
+        print()

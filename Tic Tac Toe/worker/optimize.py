@@ -8,11 +8,12 @@ from torch.utils.data import DataLoader, Dataset
 
 import os
 import numpy as np
+from tqdm import trange
 
 def train(model, transform, lr, num_epochs, batch_size):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     dataloader = get_dataloader(batch_size, transform)
-    for _ in range(num_epochs):
+    for _ in trange(num_epochs):
         optimize(model, dataloader, optimizer)
     
     # save the model
