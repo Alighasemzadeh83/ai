@@ -10,7 +10,9 @@ import numpy as np
 
 
 class ExperienceDataset(Dataset):
-    def __init__(self, path, transform=None):
+    def __init__(self, path=None, transform=None):
+        if path is None:
+            path = find_newest_dataset()
         self.transform = transform
         data = np.load(path)
         self.states = data["states"]
@@ -27,3 +29,14 @@ class ExperienceDataset(Dataset):
         policy = torch.from_numpy(self.policies[idx], dtype=torch.float32)
         value = torch.tensor(self.values[idx], dtype=torch.float32).unsqueeze(0)
         return state, policy, value
+
+def find_newest_dataset():
+    newest = None
+    for root, dirs, files in os.walk("experiences"):
+        for file in files:
+            if file.endswith(".npz"):
+                path = os.path.join(root, file)
+                timestamp = int(os.path.basename(root))
+                if newest is None or timestamp > newest[0]:
+                    newest = (timestamp, path)
+    return newest[1]
