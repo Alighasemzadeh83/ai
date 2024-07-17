@@ -1,5 +1,6 @@
 """ Logics of the game Tic Tac Toe """
 
+import torch
 import numpy as np
 
 class TicTacToe:
@@ -65,11 +66,11 @@ class TicTacToe:
         - Second channel for player -1
         - Third channel for empty cells
         """
-        state = np.zeros((self.N, self.N, 3), dtype=int)
-        state[self.board == 1, 0] = 1
-        state[self.board == -1, 1] = 1
-        state[self.board == 0, 2] = 1
-        return state
+        state = np.zeros((3, self.N, self.N), dtype=np.float32)
+        state[0, self.board == 1] = 1
+        state[1, self.board == -1] = 1
+        state[2, self.board == 0] = 1
+        return torch.from_numpy(state)
 
     def __str__(self):
         _str = ''
