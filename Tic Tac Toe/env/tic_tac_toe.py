@@ -8,13 +8,13 @@ class TicTacToe:
         self.N = N
         self.action_space = N * N
         self.state_space = N * N * 3
-        self.board = np.zeros((N, N), dtype=int)
-        self.player = 1
+        self.reset()
 
     def reset(self):
         """
         Resets the board and returns the initial state
         """
+        self.player = 1
         self.board = np.zeros((self.N, self.N), dtype=int)
         return self.__state
 
@@ -28,23 +28,25 @@ class TicTacToe:
 
         return self.__state, reward, done
 
-    def get_valid_actions(self):
+    def get_valid_actions(self, board=None):
         """
         Returns a binary array of valid actions
         """
-        return (self.board.flatten() == 0).astype(int)
+        if board is None:
+            board = self.board
+        return (board.flatten() == 0).astype(int)
 
-    def __check_win(self, action, player):
+    def __check_win(self, action, player, board):
         row = action // self.N
         col = action % self.N
         
-        assert player == self.board[row, col], "Player and board mismatch"
+        assert player == board[row, col], "Player and board mismatch"
 
         return (
-            np.sum(self.board[row, :]) == player * self.N
-            or np.sum(self.board[:, col]) == player * self.N
-            or np.sum(np.diag(self.board)) == player * self.N
-            or np.sum(np.diag(np.fliplr(self.board))) == player * self.N
+            np.sum(board[row, :]) == player * self.N
+            or np.sum(board[:, col]) == player * self.N
+            or np.sum(np.diag(board)) == player * self.N
+            or np.sum(np.diag(np.fliplr(board))) == player * self.N
         )
 
     def _step(self, board, action, player=None):
@@ -61,7 +63,7 @@ class TicTacToe:
 
         state = self.__state__(board, player)
 
-        if self.__check_win(board, action, player):
+        if self.__check_win(action, player, board):
             return state, 1, True
 
         if np.all(board != 0):
@@ -69,14 +71,15 @@ class TicTacToe:
 
         return state, 0, False
 
-    def transform(board: np.ndarray) -> torch.Tensor:
-        return torch.tensor(
+    def transform(self, board: np.ndarray) -> torch.Tensor:
+        state = np.stack(
             [
-                (board == 1).astype(int),
-                (board == -1).astype(int),
-                (board == 0).astype(int)
-            ], dtype=torch.float32
-        )
+                board == 1,
+                board == -1,
+                board == 0,
+            ]
+        ).astype(np.float32)
+        return torch.from_numpy(state)
 
     def __state__(self, board, player):
         return board * player

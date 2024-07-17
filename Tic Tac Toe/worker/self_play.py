@@ -6,9 +6,11 @@ This class is used to generate experiences based on self-play.
 Each experience is in format (state, action, value). The value is 1 if the agent wins, -1 if the agent loses, and 0 if it is a draw.
 """
 
+import torch
 import os
 import datetime
 import numpy as np
+from tqdm import trange
 
 def self_play(model, env, num_games, num_simulations, C):
     """
@@ -19,7 +21,7 @@ def self_play(model, env, num_games, num_simulations, C):
     policies = []
     values = []
 
-    for _ in range(num_games):
+    for _ in trange(num_games):
         state, policy, value = __self_play(model, env, num_simulations, C)
         states.append(state)
         policies.append(policy)
@@ -38,7 +40,7 @@ def __self_play(model, env, num_simulations, C):
     """
     Plays one game and returns the experiences.
     """
-
+    model.eval()
     memory = []
     mcts = MonteCarloTreeSearch(model, env, C, num_simulations)
     state = env.reset()
@@ -47,7 +49,8 @@ def __self_play(model, env, num_simulations, C):
     reward = None
 
     while not done:
-        action_probs = mcts.search(state)
+        with torch.no_grad():
+            action_probs = mcts.search(state)
         action = np.random.choice(env.action_space, p=action_probs)
         next_state, reward, done = env.step(action)
         memory.append((state, action_probs, reward))
@@ -87,7 +90,7 @@ class MonteCarloTreeSearch:
         """
         Returns the policy based on the MCTS
         """
-        root = Node(state)
+        root = Node(state, 0, False)
 
         for _ in range(self.num_simulations):
             node = root
@@ -95,7 +98,7 @@ class MonteCarloTreeSearch:
             while node.children:
                 node = self._select(node)
 
-            value = -node.value
+            value = node.value
 
             if not node.done:
                 policy, value = self.model(
@@ -110,7 +113,9 @@ class MonteCarloTreeSearch:
 
             self._backpropagate(node, value)
 
-        action_probs = np.array([child.visit_count for child in root.children], dtype=np.float32)
+        action_probs = np.zeros(self.env.action_space)
+        for child in root.children:
+            action_probs[child.action_taken] = child.visit_count
         action_probs /= np.sum(action_probs)
         return action_probs
 
@@ -119,7 +124,7 @@ class MonteCarloTreeSearch:
             if prob > 0:
                 child_state, value, done = self.env._step(node.state, action, player=1)
 
-                child = Node(child_state, value, done, parent=node, action_taken=action, prior=prob)
+                child = Node(child_state, -value, done, parent=node, action_taken=action, prior=prob)
                 node.children.append(child)
         return child
 
@@ -143,12 +148,12 @@ class MonteCarloTreeSearch:
         N = node.parent.visit_count
         return q_value + self.C * node.prior * np.sqrt(N) / (1 + node.visit_count)
 
-    def _backpropagate(self, value):
-        self.visit_count += 1
-        self.value_sum += value
+    def _backpropagate(self, node, value):
+        node.visit_count += 1
+        node.value_sum += value
         value = -value
-        while self.parent is not None:
-            self.parent.visit_count += 1
-            self.parent.value_sum += value
-            self = self.parent
+        while node.parent is not None:
+            node.parent.visit_count += 1
+            node.parent.value_sum += value
+            node = node.parent
             value = -value
