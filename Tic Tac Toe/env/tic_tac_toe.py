@@ -3,59 +3,87 @@
 import numpy as np
 
 class TicTacToe:
-    def __init__(self):
-        self.board = np.zeros((3, 3))
+    def __init__(self, N=3):
+        self.N = N
+        self.action_space = N * N
+        self.state_space = N * N * 3
+        self.board = np.zeros((N, N), dtype=int)
         self.player = 1
-        self.winner = None
-        self.done = False
 
     def reset(self):
-        self.board = np.zeros((3, 3))
-        self.player = 1
-        self.winner = None
-        self.done = False
+        """
+        Resets the board and returns the initial state
+        """
+        self.board = np.zeros((self.N, self.N), dtype=int)
+        return self.__state
 
-    def step(self, action):
-        if self.done:
-            return self.board, 0, self.done
+    def step(self, action: int) -> tuple:
+        """
+        Returns the next state, reward and done
+        """
+        row = action // self.N
+        col = action % self.N
 
-        if self.board[action] != 0:
-            return self.board, -10, self.done
+        self.board[row, col] = self.player
 
-        self.board[action] = self.player
-
-        if self.check_winner():
-            self.winner = self.player
-            self.done = True
-            return self.board, 10, self.done
+        if self.__check_win(action):
+            return self.__state, 1, True
 
         if np.all(self.board != 0):
-            self.done = True
-            return self.board, 0, self.done
+            return self.__state, 0, True
 
-        self.player = -1 if self.player == 1 else 1
-        return self.board, 0, self.done
+        self.player = -self.player
 
-    def check_winner(self):
-        for i in range(3):
-            if self.board[i][0] == self.board[i][1] == self.board[i][2] != 0:
-                return True
-            if self.board[0][i] == self.board[1][i] == self.board[2][i] != 0:
-                return True
-        if self.board[0][0] == self.board[1][1] == self.board[2][2] != 0:
-            return True
-        if self.board[0][2] == self.board[1][1] == self.board[2][0] != 0:
-            return True
-        return False
+        return self.__state, 0, False
 
-    def render(self):
+    def get_valid_actions(self):
+        """
+        Returns a binary array of valid actions
+        """
+        return (self.board.flatten() == 0).astype(int)
+
+    def __check_win(self, action):
+        row = action // self.N
+        col = action % self.N
+        
+        assert self.player == self.board[row, col]
+
+        return (
+            np.sum(self.board[row, :]) == self.player * self.N
+            or np.sum(self.board[:, col]) == self.player * self.N
+            or np.sum(np.diag(self.board)) == self.player * self.N
+            or np.sum(np.diag(np.fliplr(self.board))) == self.player * self.N
+        )
+
+    @property
+    def __state(self):
+        """
+        Used for training
+
+        Returns an N by N by 3 ndarray:
+        - First channel for player 1
+        - Second channel for player -1
+        - Third channel for empty cells
+        """
+        state = np.zeros((self.N, self.N, 3), dtype=int)
+        state[self.board == 1, 0] = 1
+        state[self.board == -1, 1] = 1
+        state[self.board == 0, 2] = 1
+        return state
+
+    def __str__(self):
+        _str = ''
         for i in range(3):
             for j in range(3):
                 if self.board[i][j] == 1:
-                    print('X', end=' ')
+                    _str += 'X '
                 elif self.board[i][j] == -1:
-                    print('O', end=' ')
+                    _str += 'O '
                 else:
-                    print('_', end=' ')
-            print()
-        print()
+                    _str += '_ '
+            _str += '\n'
+        return _str
+
+    def render(self):
+        # TODO: Implement a better render function
+        print(self)
