@@ -56,21 +56,19 @@ class TicTacToe:
             or np.sum(np.diag(np.fliplr(self.board))) == self.player * self.N
         )
 
+    @staticmethod
+    def transform(board: np.ndarray) -> torch.Tensor:
+        return torch.tensor(
+            [
+                (board == 1).astype(int),
+                (board == -1).astype(int),
+                (board == 0).astype(int)
+            ], dtype=torch.float32
+        )
+
     @property
     def __state(self):
-        """
-        Used for training
-
-        Returns an N by N by 3 ndarray:
-        - First channel for player 1
-        - Second channel for player -1
-        - Third channel for empty cells
-        """
-        state = np.zeros((3, self.N, self.N), dtype=np.float32)
-        state[0, self.board == 1] = 1
-        state[1, self.board == -1] = 1
-        state[2, self.board == 0] = 1
-        return torch.from_numpy(state)
+       return self.board * self.player 
 
     def __str__(self):
         _str = ''
