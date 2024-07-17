@@ -13,8 +13,8 @@ def manual_play(env, agent, human_first=True):
             action = int(input("Enter action: "))
         else:
             policy, value = agent.get_policy_value(state)
-            env.render(policy, value)
-            # plot_policy(policy, value)
+            # env.render(policy, value)
+            plot_policy(policy, value)
             action = policy.argmax()
         state, _, done = env.step(action)
         env.render()

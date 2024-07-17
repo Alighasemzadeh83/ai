@@ -12,7 +12,7 @@ import datetime
 import numpy as np
 from tqdm import trange
 
-def self_play(model, env, num_games, num_simulations, C):
+def self_play(model, env, num_games, num_simulations, C, tau, epsilon):
     """
     Plays multiple games and save in file.
     """
@@ -22,7 +22,7 @@ def self_play(model, env, num_games, num_simulations, C):
     values = []
 
     for _ in trange(num_games):
-        state, policy, value = __self_play(model, env, num_simulations, C)
+        state, policy, value = __self_play(model, env, num_simulations, C, tau, epsilon)
         states.append(state)
         policies.append(policy)
         values.append(value)
@@ -36,13 +36,13 @@ def self_play(model, env, num_games, num_simulations, C):
     timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     np.savez(f"experiences/{timestamp}.npz", states=states, policies=policies, values=values)
 
-def __self_play(model, env, num_simulations, C):
+def __self_play(model, env, num_simulations, C, tau, epsilon):
     """
     Plays one game and returns the experiences.
     """
     model.eval()
     memory = []
-    mcts = MonteCarloTreeSearch(model, env, C, num_simulations)
+    mcts = MonteCarloTreeSearch(model, env, C, num_simulations, tau, epsilon)
     state = env.reset()
     next_state = None
     done = False
@@ -80,11 +80,13 @@ class Node:
         self.value_sum = 0
 
 class MonteCarloTreeSearch:
-    def __init__(self, model, env, C, num_simulations):
+    def __init__(self, model, env, C, num_simulations, tau, epsilon):
         self.model = model
         self.env = env
         self.C = C
         self.num_simulations = num_simulations
+        self.tau = tau
+        self.epsilon = epsilon
 
     def search(self, state):
         """
@@ -104,7 +106,11 @@ class MonteCarloTreeSearch:
                 policy, value = self.model(
                     self.env.transform(node.state).unsqueeze(0)
                 )
-                policy = policy.squeeze().cpu().numpy() * self.env.get_valid_actions(node.state)
+                policy = policy.squeeze().cpu().numpy()
+                # add Dirichlet noise
+                noise = np.random.dirichlet([self.epsilon] * len(policy))
+                policy = (1 - self.tau) * policy + self.tau * noise
+                policy = policy * self.env.get_valid_actions(node.state)
                 policy /= np.sum(policy)
 
                 value = value.item()
@@ -117,9 +123,11 @@ class MonteCarloTreeSearch:
         for child in root.children:
             action_probs[child.action_taken] = child.visit_count
         action_probs /= np.sum(action_probs)
+
         return action_probs
 
     def _expand(self, node, policy):
+        assert policy.sum() > 0, f"Invalid policy for node {node.state}"
         for action, prob in enumerate(policy):
             if prob > 0:
                 child_state, value, done = self.env._step(node.state, action, player=1)

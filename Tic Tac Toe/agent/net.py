@@ -23,7 +23,7 @@ class ResidualBlock(nn.Module):
         return x
 
 class QNetwork(nn.Module):
-    def __init__(self, in_channels, action_space, num_blocks=3, hidden_channels=64, policy_head_channels=32, value_head_channels=3):
+    def __init__(self, in_channels, state_space, action_space, num_blocks=3, hidden_channels=64, policy_head_channels=32, value_head_channels=3):
         super(QNetwork, self).__init__()
         self.first_block = nn.Sequential(
             nn.Conv2d(in_channels, hidden_channels, kernel_size=3, stride=1, padding=1),
@@ -40,7 +40,7 @@ class QNetwork(nn.Module):
             nn.BatchNorm2d(policy_head_channels),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(policy_head_channels * action_space, action_space),
+            nn.Linear(policy_head_channels * state_space // in_channels, action_space),
             nn.Softmax(dim=1)
         )
 
@@ -49,7 +49,7 @@ class QNetwork(nn.Module):
             nn.BatchNorm2d(value_head_channels),
             nn.ReLU(),
             nn.Flatten(),
-            nn.Linear(value_head_channels * action_space, 1),
+            nn.Linear(value_head_channels * state_space // in_channels, 1),
             nn.Tanh()
         )
 
